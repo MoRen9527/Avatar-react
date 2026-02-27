@@ -1,0 +1,18 @@
+name: E2E Tests
+
+on: [push, pull_request]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: 安装依赖
+        run: npm install
+      - name: 安装 Playwright 浏览器
+        run: npx playwright install
+      - name: 运行 E2E 测试
+        run: npm run test:e2e
+      - name: 保存报告
+        if: failure()
+        run: npm run test:e2e:report

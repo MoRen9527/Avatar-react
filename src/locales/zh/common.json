@@ -1,0 +1,10 @@
+{
+  "configError": {
+    "title": "配置错误：缺少 VITE_API_URL",
+    "desc": "当前环境未设置 VITE_API_URL，应用无法连接后端服务。",
+    "dev": "开发环境：请在 .env.development 中添加 VITE_API_URL=http://localhost:8008/api，或按需配置。",
+    "prod": "生产环境：请在部署环境中提供 VITE_API_URL 环境变量。",
+    "tip": "提示：开发环境下缺失会自动回退到 /api 并给出控制台警告；生产环境将直接中止启动以避免误连错误地址。",
+    "action": "查看部署文档"
+  }
+}
