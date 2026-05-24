@@ -23,11 +23,8 @@
 ## Local CodeGraph Index
 
 - 2026-05-24 已由 CTO 小狄技术线完成本地 CodeGraph 试点初始化，并由本模块 CodeRegistry 接管索引摘要。
-- 索引范围采用分区索引：`src/`、`tests/`、`e2e/`；不使用仓根索引，避免依赖缓存、构建产物或测试输出污染模块代码事实。
-- 当前摘要：
-  - `src/`：90 files，859 nodes，1,305 edges，languages `tsx, typescript`。
-  - `tests/`：8 files，23 nodes，30 edges，languages `javascript, typescript`。
-  - `e2e/`：1 file，4 nodes，4 edges，language `javascript`。
+- 2026-05-24 仓库瘦身完成后已重建仓根干净索引；旧 `src/` / `tests/` / `e2e/` 分区索引不再作为正式摘要。
+- 当前仓根摘要：102 files，888 nodes，1,342 edges；languages `javascript, tsx, typescript, yaml`；backend 为 `node-sqlite`。
 - 当前 pending changes 均为 `0/0/0`；`.codegraph/` 只作为本地缓存，不作为仓库真源提交。
 - 本地 `.gitignore` 已补充 `.codegraph/`、`node_modules/`、构建产物和测试输出排除规则。
 
@@ -37,7 +34,7 @@
 - 2026-05-24 已继续将 `build/` 生成物从 Git 索引移出，本地构建目录保留；后续以 `npm run build` 重新生成，不再把构建产物作为仓库真源。
 - `package.json` 与 `package-lock.json` 仍作为依赖真源保留跟踪；`.gitignore` 已加入 `node_modules/`，后续不应重新提交依赖缓存。
 - 瘦身来源：`node_modules/` 文件来自初始提交 `f320dd3f7`（`chore: initial import`）。
-- 当前仍需注意：本轮瘦身会在 Git 状态中表现为大量 `node_modules/**` 删除，提交前应和 `.gitignore`、CodeRegistry 摘要一起作为一次仓库瘦身变更处理。
+- 当前仓库工作区已清洁，`node_modules/` 与 `build/` 均不再作为 Git 跟踪资产。
 
 ## Quality Risks
 
