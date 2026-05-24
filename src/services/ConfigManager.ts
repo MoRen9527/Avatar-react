@@ -22,8 +22,8 @@ import {
 
 class ConfigManager {
   public cache: Map<string, any>; // 改为 public 以允许外部访问
-  private syncInterval: number;
-  private listeners: Map<ConfigEventType, ConfigEventListener[]>;
+  private readonly syncInterval: number;
+  private readonly listeners: Map<ConfigEventType, ConfigEventListener[]>;
   private requestId: number;
 
   constructor() {
@@ -57,18 +57,20 @@ class ConfigManager {
       
       const response: ApiResponse<ConfigResponseData> = await api.post('/config/command', command);
       
-      if (response && response.success && response.data && response.data.configs) {
+      if (response?.success && response.data?.configs) {
         // 转换后端格式到前端格式
         const providers: ProviderConfigs = {};
         Object.entries(response.data.configs).forEach(([key, provider]) => {
           console.log(`🔄 ConfigManager处理提供商 ${key}:`, provider);
           providers[key] = {
             enabled: provider.enabled || false,
-            apiKey: provider.api_key || '',
+            apiKey: '',
+            hasApiKey: provider.has_api_key || false,
+            apiKeySource: provider.api_key_source || 'unset',
             baseUrl: provider.base_url || '',
             defaultModel: provider.default_model || '',
             enabledModels: provider.enabled_models || provider.models || [],
-            openaiCompatible: provider.openai_compatible !== undefined ? provider.openai_compatible : false
+            openaiCompatible: provider.openai_compatible ?? false
           };
           console.log(`🔄 ConfigManager最终${key}配置:`, providers[key]);
         });
@@ -85,19 +87,7 @@ class ConfigManager {
       console.error('错误状态:', error.response?.status);
       console.error('错误数据:', error.response?.data);
       console.error('请求URL:', error.config?.url);
-      
-      // 回退到localStorage
-      const localConfig = localStorage.getItem('provider_settings');
-      if (localConfig) {
-        try {
-          const parsed: ProviderConfigs = JSON.parse(localConfig);
-          this.cache.set('providers', parsed);
-          return parsed;
-        } catch (parseError) {
-          console.error('解析本地配置失败:', parseError);
-        }
-      }
-      
+
       // 返回默认配置
       return this.getDefaultProviderSettings();
     }
@@ -111,7 +101,7 @@ class ConfigManager {
       console.log(`🔧 ConfigManager.updateProviderConfig 被调用:`, { providerKey, config });
       
       const configData = {
-        api_key: config.apiKey || '',
+        api_key: '',
         base_url: config.baseUrl || '',
         default_model: config.defaultModel || '',
         enabled: config.enabled || false,
@@ -136,15 +126,12 @@ class ConfigManager {
       const response: ApiResponse = await api.post('/config/command', command);
       console.log(`📥 收到响应:`, response);
       
-      if (response && response.success) {
+      if (response?.success) {
         // 更新本地缓存
         const currentConfigs: ProviderConfigs = this.cache.get('providers') || {};
         currentConfigs[providerKey] = config;
         this.cache.set('providers', currentConfigs);
-        
-        // 同步更新localStorage作为备份
-        localStorage.setItem('provider_settings', JSON.stringify(currentConfigs));
-        
+
         // 通知监听器
         this.notifyListeners('configUpdated', { provider: providerKey, config: config });
         this.notifyListeners('providerConfigUpdated', { provider: providerKey, config: config });
@@ -176,15 +163,12 @@ class ConfigManager {
       
       const response: ApiResponse = await api.post('/config/command', command);
       
-      if (response && response.success) {
+      if (response?.success) {
         // 更新本地缓存
         const currentConfigs: ProviderConfigs = this.cache.get('providers') || {};
         delete currentConfigs[providerKey];
         this.cache.set('providers', currentConfigs);
-        
-        // 同步更新localStorage
-        localStorage.setItem('provider_settings', JSON.stringify(currentConfigs));
-        
+
         // 通知监听器
         this.notifyListeners('configDeleted', { provider: providerKey });
         
@@ -210,7 +194,6 @@ class ConfigManager {
       // 检查是否有变化
       if (this.hasConfigChanged(oldConfigs, newConfigs)) {
         this.cache.set('providers', newConfigs);
-        localStorage.setItem('provider_settings', JSON.stringify(newConfigs));
         this.notifyListeners('configChanged', newConfigs);
       }
       
@@ -237,6 +220,8 @@ class ConfigManager {
       openai: {
         enabled: false,
         apiKey: '',
+        hasApiKey: false,
+        apiKeySource: 'unset',
         baseUrl: 'https://api.openai.com/v1',
         defaultModel: 'gpt-3.5-turbo',
         enabledModels: ['gpt-4o', 'gpt-4', 'gpt-3.5-turbo'],
@@ -245,6 +230,8 @@ class ConfigManager {
       anthropic: {
         enabled: false,
         apiKey: '',
+        hasApiKey: false,
+        apiKeySource: 'unset',
         baseUrl: 'https://api.anthropic.com',
         defaultModel: 'claude-3-sonnet-20240229',
         enabledModels: ['claude-3-5-sonnet-20241022', 'claude-3-opus-20240229', 'claude-3-haiku-20240307'],
@@ -253,6 +240,8 @@ class ConfigManager {
       deepseek: {
         enabled: false,
         apiKey: '',
+        hasApiKey: false,
+        apiKeySource: 'unset',
         baseUrl: 'https://api.deepseek.com/v1',
         defaultModel: 'deepseek-chat',
         enabledModels: ['deepseek-chat', 'deepseek-coder'],
@@ -261,6 +250,8 @@ class ConfigManager {
       zhipu: {
         enabled: false,
         apiKey: '',
+        hasApiKey: false,
+        apiKeySource: 'unset',
         baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
         defaultModel: 'glm-4',
         enabledModels: ['glm-4', 'glm-4-flash', 'glm-3-turbo'],
@@ -276,15 +267,18 @@ class ConfigManager {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);
     }
-    this.listeners.get(event)!.push(callback);
+    const callbacks = this.listeners.get(event);
+    if (callbacks) {
+      callbacks.push(callback);
+    }
   }
 
   /**
    * 移除事件监听器
    */
   removeEventListener(event: ConfigEventType, callback: ConfigEventListener): void {
-    if (this.listeners.has(event)) {
-      const callbacks = this.listeners.get(event)!;
+    const callbacks = this.listeners.get(event);
+    if (callbacks) {
       const index = callbacks.indexOf(callback);
       if (index > -1) {
         callbacks.splice(index, 1);
@@ -296,8 +290,9 @@ class ConfigManager {
    * 通知监听器
    */
   notifyListeners(event: ConfigEventType, data: any): void {
-    if (this.listeners.has(event)) {
-      this.listeners.get(event)!.forEach(callback => {
+    const callbacks = this.listeners.get(event);
+    if (callbacks) {
+      callbacks.forEach(callback => {
         try {
           callback(data);
         } catch (error) {
@@ -426,7 +421,7 @@ class ConfigManager {
 
       Object.entries(providerConfigs).forEach(([providerKey, config]) => {
         console.log(`🔄 处理提供商 ${providerKey}:`, config);
-        if (config.enabled) {
+        if (config.enabled && config.hasApiKey) {
           // 优先使用配置中的模型，否则使用预定义模型
           let availableModels = config.enabledModels || predefinedModels[providerKey] || [config.defaultModel];
           
@@ -483,10 +478,6 @@ class ConfigManager {
    * 验证配置
    */
   validateConfig(config: ProviderConfig): ConfigValidationResult {
-    if (!config.apiKey && config.enabled) {
-      return { valid: false, error: 'API Key 不能为空' };
-    }
-    
     if (!config.baseUrl) {
       return { valid: false, error: 'Base URL 不能为空' };
     }

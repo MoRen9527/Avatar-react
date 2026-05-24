@@ -164,10 +164,7 @@ const ModelSelectionCard: React.FC<ModelSelectionCardProps> = ({ onConfirm, onCl
       const models: ModelInfo[] = [];
       
       Object.entries(providerConfigs).forEach(([providerKey, provider]: [string, any]) => {
-        // 为了演示功能，我们假设一些提供商是启用的
-        const isEnabledForDemo = ['deepseek', 'glm', 'openai'].includes(providerKey);
-        
-        if (isEnabledForDemo || (provider.enabled && provider.apiKey)) {
+        if (provider.enabled && provider.hasApiKey) {
           // 获取该提供商的模型列表
           let modelList: string[] = [];
           if (provider.enabledModels && Array.isArray(provider.enabledModels)) {
@@ -330,7 +327,7 @@ const ModelSelectionCard: React.FC<ModelSelectionCardProps> = ({ onConfirm, onCl
             
             {onlineModels.length === 0 && (
               <Alert severity="warning" sx={{ mb: 2 }}>
-                当前没有在线的AI模型。请检查网络连接或配置。
+                当前没有在线的AI模型。请联系平台管理员或稍后再试。
               </Alert>
             )}
             
@@ -361,6 +358,13 @@ const ModelSelectionCard: React.FC<ModelSelectionCardProps> = ({ onConfirm, onCl
               {availableModels.map((model) => {
                 const isSelected = selectedModels.includes(model.id);
                 const isOnline = model.status === 'online';
+                let borderColor = 'rgba(128, 128, 128, 0.2)';
+                if (isOnline) {
+                  borderColor = 'rgba(0, 229, 255, 0.3)';
+                }
+                if (isSelected) {
+                  borderColor = 'var(--primary-color)';
+                }
                 
                 return (
                   <Box
@@ -372,11 +376,7 @@ const ModelSelectionCard: React.FC<ModelSelectionCardProps> = ({ onConfirm, onCl
                         : 'rgba(128, 128, 128, 0.05)',
                       borderRadius: 2,
                       border: '1px solid',
-                      borderColor: isSelected
-                        ? 'var(--primary-color)'
-                        : isOnline 
-                          ? 'rgba(0, 229, 255, 0.3)' 
-                          : 'rgba(128, 128, 128, 0.2)',
+                      borderColor,
                       cursor: isOnline ? 'pointer' : 'not-allowed',
                       transition: 'all 0.2s ease',
                       '&:hover': isOnline ? {
@@ -424,9 +424,9 @@ const ModelSelectionCard: React.FC<ModelSelectionCardProps> = ({ onConfirm, onCl
                     
                     {model.features && model.features.length > 0 && (
                       <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                        {model.features.map((feature, index) => (
+                        {model.features.map((feature) => (
                           <Chip
-                            key={index}
+                            key={`${model.id}-${feature}`}
                             label={feature}
                             size="small"
                             variant="outlined"

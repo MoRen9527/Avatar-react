@@ -606,7 +606,7 @@ const ChatPanel: React.FC = () => {
                 ) : (
                   <MenuItem disabled>
                     <Typography color="text.secondary">
-                      {providersLoading ? '正在加载提供商...' : '请先配置AI提供商'}
+                      {providersLoading ? '正在加载提供商...' : '当前没有可用AI模型，请联系平台管理员'}
                     </Typography>
                   </MenuItem>
                 )}

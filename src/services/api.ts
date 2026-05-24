@@ -1,8 +1,32 @@
 import axios from 'axios';
 
+function createStreamingHeaders(): HeadersInit {
+  const token = localStorage.getItem('token');
+  return {
+    'Content-Type': 'application/json',
+    'Accept': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+  };
+}
+
+function normalizeRuntimeProviderConfig(config?: any, model?: string): Record<string, any> {
+  const normalized = config ? { ...config } : {};
+
+  if (model) {
+    normalized.default_model = model;
+  }
+
+  if (!normalized.api_key) {
+    delete normalized.api_key;
+  }
+
+  return normalized;
+}
+
 // 纯函数：根据传入的 mode 和 env 值解析 API 基址（便于测试）
-export function resolveApiBase(mode: string, envBase?: string): string {
-  const value = envBase ?? '';
+export function resolveApiBase(mode: string, envBase = ''): string {
+  const value = envBase;
   if (!value) {
     if (mode === 'development' || mode === 'test') {
       console.warn('[WARN] VITE_API_URL 未设置，使用回退 \'/api\'。请在 .env.development 中设置 VITE_API_URL');
@@ -60,7 +84,7 @@ api.interceptors.response.use(
   },
   (error) => {
     // 处理401错误（未授权）
-    if (error.response && error.response.status === 401) {
+    if (error.response?.status === 401) {
       // 清除token
       localStorage.removeItem('token');
       
@@ -128,46 +152,7 @@ export const chatAPI = {
   sendStreamMessage: async (message: string, onChunk: (data: any) => void, options: { provider?: string; config?: any; model?: string } = {}) => {
     try {
       const { provider, config, model } = options;
-      
-      // 如果没有配置信息，尝试从localStorage获取
-      let providerConfig = config;
-      if (!providerConfig && provider) {
-        // 首先尝试从provider_settings获取
-        const savedSettings = localStorage.getItem('provider_settings');
-        if (savedSettings) {
-          try {
-            const allSettings = JSON.parse(savedSettings);
-            const providerSettings = allSettings[provider];
-            if (providerSettings && providerSettings.enabled && providerSettings.apiKey) {
-              providerConfig = {
-                api_key: providerSettings.apiKey,
-                base_url: providerSettings.baseUrl,
-                default_model: providerSettings.defaultModel,
-                enabled: providerSettings.enabled
-              };
-            }
-          } catch (error) {
-            console.error('解析provider_settings失败:', error);
-          }
-        }
-        
-        // 如果还没有配置，尝试旧的格式
-        if (!providerConfig) {
-          const savedConfig = localStorage.getItem(`provider_config_${provider}`);
-          if (savedConfig) {
-            providerConfig = JSON.parse(savedConfig);
-          }
-        }
-      }
-      
-      if (!providerConfig) {
-        throw new Error('缺少provider配置信息，请先在设置中配置provider');
-      }
-
-      // 如果传递了具体的model，使用它覆盖默认模型
-      if (model && providerConfig) {
-        providerConfig.default_model = model;
-      }
+      const providerConfig = normalizeRuntimeProviderConfig(config, model);
       
   // 使用统一常量 API 基址（开发警告、生产抛错）
   const rawBase = API_BASE_URL || '';
@@ -179,15 +164,11 @@ export const chatAPI = {
       
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
+        headers: createStreamingHeaders(),
         body: JSON.stringify({
           query: message,
           provider: provider || 'openrouter',
+          ...(model ? { model } : {}),
           config: providerConfig
         }),
         credentials: 'include'
@@ -301,12 +282,7 @@ export const chatAPI = {
       
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
+        headers: createStreamingHeaders(),
         body: JSON.stringify({
           query: message,
           chat_mode: 'group',

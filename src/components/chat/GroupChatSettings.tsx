@@ -17,8 +17,7 @@ import {
   Chip,
   Alert,
   IconButton,
-  TextField,
-  SelectChangeEvent
+  TextField
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -38,7 +37,7 @@ interface Provider {
   displayName: string;
   description: string;
   status: 'online' | 'offline' | 'unknown';
-  apiKey?: string;
+  hasApiKey?: boolean;
   defaultModel?: string;
   enabled?: boolean;
   features?: string[];
@@ -74,8 +73,8 @@ const GroupChatSettings: React.FC<GroupChatSettingsProps> = ({ open, onClose, on
     const loadGroupChatConfig = async () => {
       try {
         const response = await api.get('/chat/group-settings');
-        if (response.data && response.data.success) {
-          const serverSettings = response.data.data;
+        if (response.data?.success) {
+          const serverSettings = response.data?.data;
           setLocalSettings({
             selectedProviders: serverSettings.selectedProviders || [],
             replyStrategy: serverSettings.replyStrategy || 'discussion',
@@ -270,8 +269,14 @@ const GroupChatSettings: React.FC<GroupChatSettingsProps> = ({ open, onClose, on
             border: '1px solid rgba(0, 229, 255, 0.1)'
           }}>
             {providers.map((provider: Provider) => {
-              const isConfigured = provider.apiKey && provider.defaultModel;
               const isEnabled = provider.enabled && provider.status === 'online';
+              let borderColor = 'rgba(128, 128, 128, 0.2)';
+              if (isEnabled) {
+                borderColor = 'rgba(0, 229, 255, 0.3)';
+              }
+              if (localSettings.selectedProviders.includes(provider.name)) {
+                borderColor = 'var(--primary-color)';
+              }
               
               return (
                 <Box
@@ -287,11 +292,7 @@ const GroupChatSettings: React.FC<GroupChatSettingsProps> = ({ open, onClose, on
                       : 'rgba(128, 128, 128, 0.05)',
                     borderRadius: 1.5,
                     border: '1px solid',
-                    borderColor: localSettings.selectedProviders.includes(provider.name)
-                      ? 'var(--primary-color)'
-                      : isEnabled 
-                        ? 'rgba(0, 229, 255, 0.3)' 
-                        : 'rgba(128, 128, 128, 0.2)',
+                    borderColor,
                     cursor: isEnabled ? 'pointer' : 'not-allowed',
                     transition: 'all 0.2s ease',
                     '&:hover': isEnabled ? {
@@ -353,9 +354,9 @@ const GroupChatSettings: React.FC<GroupChatSettingsProps> = ({ open, onClose, on
                       justifyContent: 'center',
                       mb: 0.5
                     }}>
-                      {provider.features.slice(0, 2).map((feature, index) => (
+                      {provider.features.slice(0, 2).map((feature) => (
                         <Chip
-                          key={index}
+                          key={`${provider.name}-${feature}`}
                           label={feature}
                           size="small"
                           variant="outlined"

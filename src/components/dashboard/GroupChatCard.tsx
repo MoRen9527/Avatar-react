@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import {
   Box,
   Typography,
@@ -19,9 +19,81 @@ import {
   Delete as DeleteIcon,
   Refresh as RefreshIcon
 } from '@mui/icons-material';
-import { RootState } from '../../store';
 import { updateCardData } from '../../store/dynamicCardSlice';
 import { setGroupChatSettings } from '../../store/chatSlice';
+
+type DefaultProvider = {
+  id: string;
+  name: string;
+  description?: string;
+  base_url: string;
+  default_model: string;
+  models: Array<{ id: string; name: string }>;
+  enabled?: boolean;
+  has_api_key?: boolean;
+  enabled_models?: string[];
+};
+
+function buildConfiguredProviders(defaultProviders: DefaultProvider[], allConfigs: Record<string, any>): DefaultProvider[] {
+  return defaultProviders.map((defaultProvider) => {
+    const savedConfig = allConfigs[defaultProvider.id];
+    const isConfigured = Boolean(savedConfig?.enabled && savedConfig?.hasApiKey);
+
+    return {
+      ...defaultProvider,
+      enabled: isConfigured,
+      has_api_key: Boolean(savedConfig?.hasApiKey),
+      base_url: savedConfig?.baseUrl || defaultProvider.base_url,
+      default_model: savedConfig?.defaultModel || defaultProvider.default_model,
+      enabled_models: savedConfig?.enabledModels || []
+    };
+  });
+}
+
+function buildProviderModelData(providers: DefaultProvider[]) {
+  const providerMap: Record<string, { id: string; name: string; models: Array<{ id: string; name: string }> }> = {};
+  const flatModels: Array<{ key: string; provider: string; name: string; displayName: string }> = [];
+
+  for (const provider of providers) {
+    const allModels = provider.models || [];
+    const enabledModels = provider.enabled_models?.length
+      ? allModels.filter((model) => provider.enabled_models?.includes(model.id))
+      : allModels;
+
+    if (enabledModels.length === 0) {
+      continue;
+    }
+
+    providerMap[provider.id] = {
+      id: provider.id,
+      name: provider.name,
+      models: enabledModels
+    };
+
+    for (const model of enabledModels) {
+      flatModels.push({
+        key: `${provider.id}:${model.id}`,
+        provider: provider.id,
+        name: model.name,
+        displayName: `${provider.name} - ${model.name}`
+      });
+    }
+  }
+
+  return {
+    providerGroups: Object.values(providerMap),
+    flatModels
+  };
+}
+
+function buildFallbackModels(defaultProviders: Array<{ id: string; name: string; models: Array<{ id: string; name: string }> }>) {
+  return defaultProviders.flatMap((provider) => provider.models.map((model) => ({
+    key: `${provider.id}:${model.id}`,
+    provider: provider.name,
+    name: model.name,
+    displayName: `${provider.name} - ${model.name}`
+  })));
+}
 
 interface GroupChatCardProps {
   card: any;
@@ -30,7 +102,6 @@ interface GroupChatCardProps {
 
 const GroupChatCard: React.FC<GroupChatCardProps> = ({ card, onUpdate }) => {
   const dispatch = useDispatch();
-  const { chatMode } = useSelector((state: RootState) => state.chat);
   const [localSelectedModels, setLocalSelectedModels] = useState<string[]>([]);
   const [availableModels, setAvailableModels] = useState<any[]>([]);
   const [modelProviders, setModelProviders] = useState<any[]>([]);
@@ -146,56 +217,14 @@ const GroupChatCard: React.FC<GroupChatCardProps> = ({ card, onUpdate }) => {
           }
         ];
         
-        // 构建模型提供商列表（与ChatPanel的loadProviderConfigs逻辑完全一致）
-        const allProviders = defaultProviders.map(defaultProvider => {
-          const savedConfig = allConfigs[defaultProvider.id];
-          const isConfigured = savedConfig && savedConfig.enabled && savedConfig.apiKey;
-          
-          return {
-            ...defaultProvider,
-            enabled: Boolean(isConfigured),
-            api_key: savedConfig?.apiKey || '',
-            base_url: savedConfig?.baseUrl || defaultProvider.base_url,
-            default_model: savedConfig?.defaultModel || defaultProvider.default_model,
-            enabled_models: savedConfig?.enabledModels || []
-          };
-        });
+        const allProviders = buildConfiguredProviders(defaultProviders, allConfigs);
         
-        // 只显示已启用且有API密钥的提供商（与ChatPanel的getAvailableProviders完全一致）
-        const availableProviders = allProviders.filter(p => p.enabled && p.api_key);
-        
-        // 构建模型列表
-        const providerMap = {};
-        const flatModels = [];
-        
-        availableProviders.forEach(provider => {
-          // 获取该提供商的可用模型（与ChatPanel的getAvailableModels逻辑完全一致）
-          const allModels = provider.models || [];
-          const availableModels = provider.enabled_models && provider.enabled_models.length > 0
-            ? allModels.filter(model => provider.enabled_models.includes(model.id))
-            : allModels;
-          
-          if (availableModels.length > 0) {
-            // 创建提供商分组
-            providerMap[provider.id] = {
-              id: provider.id,
-              name: provider.name,
-              models: availableModels
-            };
-            
-            // 添加到扁平列表
-            availableModels.forEach(model => {
-              flatModels.push({
-                key: `${provider.id}:${model.id}`,
-                provider: provider.id,
-                name: model.name,
-                displayName: `${provider.name} - ${model.name}`
-              });
-            });
-          }
-        });
-        
-        setModelProviders(Object.values(providerMap));
+        // 只显示已启用且服务端检测到可用密钥的提供商
+        const availableProviders = allProviders.filter(p => p.enabled && p.has_api_key);
+
+        const { providerGroups, flatModels } = buildProviderModelData(availableProviders);
+
+        setModelProviders(providerGroups);
         setAvailableModels(flatModels);
         
       } catch (error) {
@@ -212,14 +241,7 @@ const GroupChatCard: React.FC<GroupChatCardProps> = ({ card, onUpdate }) => {
         ];
         
         setModelProviders(defaultProviders);
-        const defaultModels = defaultProviders.flatMap(provider =>
-          provider.models.map(model => ({
-            key: `${provider.id}:${model.id}`,
-            provider: provider.name,
-            name: model.name,
-            displayName: `${provider.name} - ${model.name}`
-          }))
-        );
+        const defaultModels = buildFallbackModels(defaultProviders);
         setAvailableModels(defaultModels);
       }
     };
@@ -230,12 +252,20 @@ const GroupChatCard: React.FC<GroupChatCardProps> = ({ card, onUpdate }) => {
   // 初始化本地状态 - 只在组件挂载时执行一次
   useEffect(() => {
     // 从card数据中获取已选择的模型
-    if (safeCard.data && safeCard.data.selectedModels && safeCard.data.selectedModels.length > 0) {
+    if (safeCard.data?.selectedModels?.length > 0) {
       setLocalSelectedModels(safeCard.data.selectedModels);
     } else {
       setLocalSelectedModels([]);
     }
   }, []); // 只在组件挂载时执行一次
+
+  let snackbarBackgroundColor = 'rgba(33, 150, 243, 0.9)';
+  if (snackbarSeverity === 'error') {
+    snackbarBackgroundColor = 'rgba(244, 67, 54, 0.9)';
+  }
+  if (snackbarSeverity === 'success') {
+    snackbarBackgroundColor = 'rgba(76, 175, 80, 0.9)';
+  }
 
   // 处理模型选择
   const handleModelChange = (event: any) => {
@@ -613,11 +643,7 @@ const GroupChatCard: React.FC<GroupChatCardProps> = ({ card, onUpdate }) => {
           onClose={handleCloseSnackbar} 
           severity={snackbarSeverity}
           sx={{
-            backgroundColor: snackbarSeverity === 'success' 
-              ? 'rgba(76, 175, 80, 0.9)' 
-              : snackbarSeverity === 'error' 
-              ? 'rgba(244, 67, 54, 0.9)' 
-              : 'rgba(33, 150, 243, 0.9)',
+            backgroundColor: snackbarBackgroundColor,
             color: 'white',
             '& .MuiAlert-icon': {
               color: 'white',

@@ -87,7 +87,7 @@ const ModelSelectionDialog: React.FC<ModelSelectionDialogProps> = ({
         setAvailableModels(models);
         
         if (models.length === 0) {
-          setError('当前没有可用的模型，请检查模型配置');
+          setError('当前没有可用的模型，请联系平台管理员或稍后再试');
         }
       } else {
         setError('无法获取模型列表');

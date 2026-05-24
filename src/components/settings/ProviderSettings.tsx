@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -7,7 +6,6 @@ import {
   DialogActions,
   Button,
   FormControl,
-  InputLabel,
   Select,
   MenuItem,
   Box,
@@ -18,14 +16,7 @@ import {
   IconButton,
   Chip,
   Switch,
-  FormControlLabel,
-  Checkbox,
-  RadioGroup,
-  Radio,
-  Divider,
-  Badge,
-  InputAdornment,
-  Paper
+  FormControlLabel
 } from '@mui/material';
 import api from '../../services/api';
 import './ProviderSettings.css';
@@ -34,17 +25,13 @@ import {
   Close as CloseIcon,
   Save as SaveIcon,
   Science as TestIcon,
-  Visibility as VisibilityIcon,
-  VisibilityOff as VisibilityOffIcon,
   CheckCircle as SuccessIcon,
   Error as ErrorIcon,
   Person as SingleChatIcon,
   Group as GroupChatIcon,
-  Group as GroupIcon,
-  Add as AddIcon
+  Group as GroupIcon
 } from '@mui/icons-material';
-import { setGroupChatSettings } from '../../store/chatSlice';
-import { ProviderConfig, ProviderConfigs } from '../../types/config';
+import { ProviderConfigs } from '../../types/config';
 
 interface ProviderSettingsProps {
   open: boolean;
@@ -54,23 +41,9 @@ interface ProviderSettingsProps {
 }
 
 const ProviderSettings: React.FC<ProviderSettingsProps> = ({ open, onClose, embedded = false, onSettingsChange }) => {
-    
-  // 如果组件没有打开且不是嵌入模式，直接返回null
-  if (!open && !embedded) {
-        return null;
-  }
-  
-  const dispatch = useDispatch();
-  const reduxGroupChatSettings = useSelector((state: any) => state.chat.groupChatSettings);
-  
-  // 拖拽状态
-  const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [dialogPosition, setDialogPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  
-  // 健壮配置架构：不再依赖localStorage，使用内存状态管理
+  const isVisible = open || embedded;
+
   const [mainTab, setMainTab] = useState<number>(0);
-  const [singleChatTab, setSingleChatTab] = useState<number>(0);
   
   // 统一的提供商配置，去重并整理
   const [providerConfigs, setProviderConfigs] = useState<ProviderConfigs>({
@@ -220,30 +193,17 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({ open, onClose, embe
     }
   });
 
-  // API密钥可见性状态
-  const [showApiKeys, setShowApiKeys] = useState({});
-  
   // 测试连接状态
   const [testing, setTesting] = useState({});
   const [testResults, setTestResults] = useState({});
   
   // 变更追踪
   const [hasChanges, setHasChanges] = useState(false);
-  const [renderKey, setRenderKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
-  const [forceUpdate, setForceUpdate] = useState(0);
-  
-  // 监听hasChanges变化
-  useEffect(() => {
-    console.log('🔄 hasChanges useEffect 触发:', hasChanges);
-    setForceUpdate(prev => prev + 1);
-  }, [hasChanges]);
 
-  
   // 监听保存事件
   useEffect(() => {
     const handleSaveEvent = () => {
-      console.log('🎯 收到保存事件，执行保存');
       handleSave();
     };
     
@@ -253,64 +213,29 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({ open, onClose, embe
       window.removeEventListener('saveProviderSettings', handleSaveEvent);
     };
   }, []);
-  
-  // 监听renderKey变化
-  useEffect(() => {
-    console.log('🔄 renderKey useEffect 触发:', renderKey);
-  }, [renderKey]);
-  
-  // 监听providerConfigs变化
-  useEffect(() => {
-    console.log('🔄 providerConfigs useEffect 触发:', providerConfigs);
-  }, [providerConfigs]);
-  
-  // 群聊设置的本地状态
-  const [localGroupChatSettings, setLocalGroupChatSettings] = useState(reduxGroupChatSettings);
-
-  // 切换API密钥可见性
-  const toggleApiKeyVisibility = (provider) => {
-    setShowApiKeys(prev => ({
-      ...prev,
-      [provider]: !prev[provider]
-    }));
-  };
 
   // 更新提供商配置
   const updateProviderConfig = (provider, field, value) => {
-    console.log(`🔧 更新配置: ${provider}.${field} = ${value}`);
-    console.log(`🔧 更新前 hasChanges:`, hasChanges);
-    
-    // 直接更新配置，不检查值变化
     setProviderConfigs(prev => {
-      const newConfig = {
+      return {
         ...prev,
         [provider]: {
           ...prev[provider],
           [field]: value
         }
       };
-      console.log(`🔧 新配置:`, newConfig);
-      return newConfig;
     });
-    
-    // 标记有更改并强制重新渲染
-    console.log('🔧 设置 hasChanges 为 true');
+
     setHasChanges(true);
-    setRenderKey(prev => prev + 1);
-    
-    // 通知父组件配置发生变化
+
     if (onSettingsChange) {
-      console.log('🔧 调用 onSettingsChange 回调');
       onSettingsChange();
     }
-    
-    // 如果更新了启用的模型列表，通知ChatPanel刷新
+
     if (field === 'enabledModels') {
-      console.log('🔧 启用模型列表已更新，通知ChatPanel刷新');
       window.dispatchEvent(new CustomEvent('providerConfigUpdated'));
     }
-    
-    // 如果切换了OpenAI兼容模式，清除测试结果
+
     if (field === 'openaiCompatible') {
       setTestResults(prev => {
         const newResults = { ...prev };
@@ -326,9 +251,8 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({ open, onClose, embe
     
     try {
       const config = providerConfigs[provider];
-      // 转换字段名以匹配后端期望的格式
       const backendConfig = {
-        api_key: config.apiKey,
+        api_key: '',
         base_url: config.baseUrl,
         default_model: config.defaultModel,
         enabled_models: config.enabledModels,
@@ -364,71 +288,35 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({ open, onClose, embe
   const saveConfigs = async () => {
     try {
       setIsSaving(true);
-      
-      // 使用函数式状态更新来获取最新状态
-      let currentConfigs: typeof providerConfigs = providerConfigs;
-      setProviderConfigs(prev => {
-        currentConfigs = prev;
-        return prev;
-      });
-      
-      // 确保状态已更新
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      console.log('🚀 开始保存配置，当前配置:', currentConfigs);
-      
-      // 逐个保存每个提供商的配置
-      const savePromises = Object.entries(currentConfigs).map(async ([providerName, config]) => {
-        console.log(`🔍 检查提供商 ${providerName}:`, config);
-        console.log(`🔍 条件检查: enabled=${config.enabled}, apiKey=${config.apiKey ? '***' : ''}`);
-        
-        // 特别关注 DeepSeek
-        if (providerName === 'deepseek') {
-          console.log(`🎯 DeepSeek 详细状态:`, {
-            enabled: config.enabled,
-            apiKey: config.apiKey ? `${config.apiKey.substring(0, 10)}...` : '(空)',
-            hasApiKey: !!config.apiKey,
-            apiKeyLength: config.apiKey ? config.apiKey.length : 0
-          });
-        }
-        
-        // 保存所有配置，不管是否启用
+
+      const savePromises = Object.entries(providerConfigs).map(async ([providerName, config]) => {
         const configData = {
-          api_key: config.apiKey || '',
+          api_key: '',
           base_url: config.baseUrl || '',
           default_model: config.defaultModel || '',
           enabled: config.enabled || false,
           enabled_models: config.enabledModels || [],
           openai_compatible: config.openaiCompatible || false
         };
-        
-        console.log(`📤 发送保存请求 ${providerName}:`, {
-          provider_name: providerName,
-          config: configData
-        });
-        
-        const response: any = await configManager.updateProviderConfig(providerName, {
-          apiKey: configData.api_key,
+
+        return configManager.updateProviderConfig(providerName, {
+          apiKey: '',
+          hasApiKey: config.hasApiKey,
+          apiKeySource: config.apiKeySource,
           baseUrl: configData.base_url,
           defaultModel: configData.default_model,
           enabled: configData.enabled,
           enabledModels: configData.enabled_models || [],
           openaiCompatible: configData.openai_compatible || false
         });
-        
-        console.log(`📥 收到保存响应 ${providerName}:`, response);
-        return response;
       });
       
       await Promise.all(savePromises.filter(Boolean));
-      
-      // 保存成功后不重新加载配置，保持当前状态
+
       setHasChanges(false);
       if (onSettingsChange) {
         onSettingsChange();
       }
-      
-      console.log('✅ 所有配置保存成功');
     } catch (error) {
       console.error('保存配置失败:', error);
       throw error;
@@ -439,53 +327,37 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({ open, onClose, embe
 
   // 加载配置
   const loadConfigs = async () => {
-    console.log('🔄 loadConfigs 被调用，调用栈:', new Error().stack);
-    
-    // 如果正在保存，跳过加载
     if (isSaving) {
-      console.log('⏭️ 正在保存中，跳过配置加载');
       return;
     }
     
     try {
       const configs = await configManager.loadConfigs();
       if (configs) {
-        // 使用函数式更新确保使用最新的状态
         setProviderConfigs(currentConfigs => {
           const mergedConfigs = { ...currentConfigs };
           
           Object.entries(configs).forEach(([providerName, providerData]: [string, any]) => {
-            console.log(`🔄 处理提供商 ${providerName}:`, providerData);
-            console.log(`🔄 原始openai_compatible值:`, providerData.openai_compatible);
-            console.log(`🔄 原始openaiCompatible值:`, providerData.openaiCompatible);
-            
             if (mergedConfigs[providerName]) {
+              const openaiCompatible = providerData.openaiCompatible ?? providerData.openai_compatible ?? mergedConfigs[providerName].openaiCompatible;
+
               mergedConfigs[providerName] = {
-                ...mergedConfigs[providerName], // 保留当前配置
+                ...mergedConfigs[providerName],
                 enabled: providerData.enabled || false,
-                // 只有当后端有有效的 API Key 时才使用，否则保留当前的
-                apiKey: providerData.apiKey && providerData.apiKey.trim() && providerData.apiKey !== 'sk-deepseek-test-123' 
-                  ? providerData.apiKey 
-                  : mergedConfigs[providerName].apiKey,
-                baseUrl: providerData.baseUrl || mergedConfigs[providerName].baseUrl,
-                defaultModel: providerData.defaultModel || mergedConfigs[providerName].defaultModel,
-                enabledModels: providerData.enabledModels || mergedConfigs[providerName].enabledModels,
-                // 优先使用openai_compatible字段（后端格式），然后是openaiCompatible（前端格式）
-                openaiCompatible: providerData.openai_compatible !== undefined 
-                  ? providerData.openai_compatible 
-                  : (providerData.openaiCompatible !== undefined 
-                    ? providerData.openaiCompatible 
-                    : mergedConfigs[providerName].openaiCompatible)
+                apiKey: '',
+                hasApiKey: providerData.hasApiKey || providerData.has_api_key || false,
+                apiKeySource: providerData.apiKeySource || providerData.api_key_source || 'unset',
+                baseUrl: providerData.baseUrl || providerData.base_url || mergedConfigs[providerName].baseUrl,
+                defaultModel: providerData.defaultModel || providerData.default_model || mergedConfigs[providerName].defaultModel,
+                enabledModels: providerData.enabledModels || providerData.enabled_models || mergedConfigs[providerName].enabledModels,
+                openaiCompatible
               };
-              console.log(`🔄 最终${providerName}的openaiCompatible值:`, mergedConfigs[providerName].openaiCompatible);
             }
           });
-          
-          console.log('✅ 配置加载成功:', mergedConfigs);
+
           return mergedConfigs;
         });
-        
-        // 重置更改状态，因为刚加载的配置就是最新的
+
         setHasChanges(false);
       }
     } catch (error) {
@@ -645,6 +517,38 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({ open, onClose, embe
     return predefinedModels[providerKey] || [];
   };
 
+  const getProviderApiStatus = (config) => {
+    if (config?.hasApiKey) {
+      return {
+        label: config.apiKeySource === 'env' ? '已从环境变量检测到' : '已检测到可用密钥',
+        color: 'success' as const,
+        description: config.apiKeySource === 'env'
+          ? '运行时 API Key 由后端环境变量提供，前端不再持有或保存密钥。'
+          : '当前提供商存在可用运行时密钥。'
+      };
+    }
+
+    return {
+      label: '未检测到环境变量密钥',
+      color: 'warning' as const,
+      description: '请在后端运行环境中提供对应的 API Key，前端配置页不会保存或回显真实密钥。'
+    };
+  };
+
+  const handleEnabledModelToggle = (provider, model, checked) => {
+    const currentModels = providerConfigs[provider]?.enabledModels || [];
+    const newModels = checked
+      ? [...currentModels, model]
+      : currentModels.filter((currentModel) => currentModel !== model);
+
+    updateProviderConfig(provider, 'enabledModels', newModels);
+    setHasChanges(true);
+  };
+
+  const createEnabledModelToggleHandler = (provider, model) => (_event, checked) => {
+    handleEnabledModelToggle(provider, model, checked);
+  };
+
   // 渲染统一的提供商配置
   const renderUnifiedProvidersTab = () => {
     // 所有提供商配置，去重并整理
@@ -656,11 +560,25 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({ open, onClose, embe
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="info" sx={{ mb: 3 }}>
-          统一的模型提供商配置，支持官方SDK、OpenAI兼容接口和聚合平台。启用所需的提供商并配置API密钥即可使用。
+          统一的模型提供商配置以服务端环境变量为权威源。此处仅管理启用状态、Base URL、默认模型和模型白名单，不再保存前端侧 API Key。
         </Alert>
 
         {allProviders.map((provider) => {
           const config = providerConfigs[provider];
+          const apiStatus = getProviderApiStatus(config);
+          const testResult = testResults[provider];
+          let testResultIcon = <ErrorIcon />;
+          let testResultColor: 'success' | 'warning' | 'error' = 'error';
+
+          if (testResult?.developmentMode) {
+            testResultIcon = <TestIcon />;
+            testResultColor = 'warning';
+          }
+
+          if (testResult?.success) {
+            testResultIcon = <SuccessIcon />;
+            testResultColor = 'success';
+          }
           const providerNames = {
             openai: 'OpenAI',
             anthropic: 'Anthropic Claude',
@@ -768,41 +686,22 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({ open, onClose, embe
               {config?.enabled && (
                 <>
                   <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" sx={{ mb: 1 }}>API Key</Typography>
-                    <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                      <input
-                        type={showApiKeys[provider] ? 'text' : 'password'}
-                        value={config?.apiKey || ''}
-                        onChange={(e) => {
-                          console.log('🎯 输入框onChange触发:', e.target.value);
-                          updateProviderConfig(provider, 'apiKey', e.target.value);
-                          // 强制设置 hasChanges 为 true
-                          setHasChanges(true);
-                        }}
-                        placeholder={provider === 'openai' ? 'sk-...' : provider === 'anthropic' ? 'sk-ant-...' : 'API Key'}
-                        style={{
-                          width: '100%',
-                          padding: '8px 40px 8px 8px',
-                          backgroundColor: 'rgba(0, 229, 255, 0.05)',
-                          border: '1px solid rgba(0, 229, 255, 0.2)',
-                          borderRadius: '4px',
-                          color: 'var(--text-color)'
-                        }}
-                      />
-                      <IconButton
-                        onClick={() => toggleApiKeyVisibility(provider)}
-                        size="small"
-                        sx={{
-                          position: 'absolute',
-                          right: '8px',
-                          color: 'var(--primary-color)',
-                          '&:hover': {
-                            backgroundColor: 'rgba(0, 229, 255, 0.1)',
-                          },
-                        }}
-                      >
-                        {showApiKeys[provider] ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                      </IconButton>
+                    <Typography variant="body2" sx={{ mb: 1 }}>运行时密钥状态</Typography>
+                    <Box sx={{
+                      p: 1.5,
+                      borderRadius: '8px',
+                      border: '1px solid rgba(0, 229, 255, 0.2)',
+                      backgroundColor: 'rgba(0, 229, 255, 0.05)'
+                    }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
+                        <Chip label={apiStatus.label} color={apiStatus.color} size="small" />
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                          source={config?.apiKeySource || 'unset'}
+                        </Typography>
+                      </Box>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+                        {apiStatus.description}
+                      </Typography>
                     </Box>
                   </Box>
                   
@@ -868,15 +767,7 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({ open, onClose, embe
                             <Switch
                               size="small"
                               checked={(config?.enabledModels || providerConfigs[provider]?.enabledModels || []).includes(model)}
-                              onChange={(e) => {
-                                const currentModels = config?.enabledModels || providerConfigs[provider]?.enabledModels || [];
-                                const newModels = e.target.checked
-                                  ? [...currentModels, model]
-                                  : currentModels.filter(m => m !== model);
-                                updateProviderConfig(provider, 'enabledModels', newModels);
-                                // 强制设置 hasChanges 为 true
-                                setHasChanges(true);
-                              }}
+                              onChange={createEnabledModelToggleHandler(provider, model)}
                               sx={{
                                 '& .MuiSwitch-switchBase.Mui-checked': {
                                   color: '#00e5ff !important',
@@ -910,7 +801,7 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({ open, onClose, embe
                       size="small"
                       startIcon={<TestIcon />}
                       onClick={() => testConnection(provider)}
-                      disabled={testing[provider] || !config?.apiKey}
+                      disabled={testing[provider] || !config?.hasApiKey}
                       sx={{
                         borderColor: 'var(--primary-color)',
                         color: 'var(--primary-color)',
@@ -925,573 +816,9 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({ open, onClose, embe
                     
                     {testResults[provider] && (
                       <Chip
-                        icon={
-                          testResults[provider].success ? <SuccessIcon /> : 
-                          testResults[provider].developmentMode ? <TestIcon /> : <ErrorIcon />
-                        }
-                        label={testResults[provider].message}
-                        color={
-                          testResults[provider].success ? 'success' : 
-                          testResults[provider].developmentMode ? 'warning' : 'error'
-                        }
-                        size="small"
-                      />
-                    )}
-                  </Box>
-                </>
-              )}
-            </Box>
-          );
-        })}
-      </Box>
-    );
-  };
-
-  // 渲染官方SDK选项卡（保留用于兼容性）
-  const renderOfficialSDKTab = () => {
-    const officialProviders = ['openai', 'anthropic', 'google', 'deepseek', 'glm', 'openrouter'];
-    
-    return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="info" sx={{ mb: 3 }}>
-          使用各提供商的官方SDK连接，享受最佳的兼容性和性能。
-        </Alert>
-
-        {officialProviders.map((provider) => {
-          const config = providerConfigs[provider];
-          const providerNames = {
-            openai: 'OpenAI',
-            anthropic: 'Anthropic Claude',
-            google: 'Google Gemini',
-            deepseek: 'DeepSeek',
-            glm: 'GLM (智谱AI)',
-            openrouter: 'OpenRouter'
-          };
-
-          return (
-            <Box key={provider} sx={{ mb: 3, p: 2, border: '1px solid rgba(0, 229, 255, 0.2)', borderRadius: '8px' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                <Typography variant="h6" sx={{ color: 'var(--primary-color)' }}>
-                  {providerNames[provider]}
-                </Typography>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={config?.enabled || false}
-                      onChange={(e) => {
-                        updateProviderConfig(provider, 'enabled', e.target.checked);
-                        // 强制设置 hasChanges 为 true
-                        setHasChanges(true);
-                      }}
-                    />
-                  }
-                  label="启用"
-                />
-              </Box>
-              
-              {config?.enabled && (
-                <>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" sx={{ mb: 1 }}>API Key</Typography>
-                    <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                      <input
-                        type={showApiKeys[provider] ? 'text' : 'password'}
-                        value={config?.apiKey || ''}
-                        onChange={(e) => updateProviderConfig(provider, 'apiKey', e.target.value)}
-                        placeholder={provider === 'openai' ? 'sk-...' : provider === 'anthropic' ? 'sk-ant-...' : 'API Key'}
-                        style={{
-                          width: '100%',
-                          padding: '8px 40px 8px 8px',
-                          backgroundColor: 'rgba(0, 229, 255, 0.05)',
-                          border: '1px solid rgba(0, 229, 255, 0.2)',
-                          borderRadius: '4px',
-                          color: 'var(--text-color)'
-                        }}
-                      />
-                      <IconButton
-                        onClick={() => toggleApiKeyVisibility(provider)}
-                        size="small"
-                        sx={{
-                          position: 'absolute',
-                          right: '8px',
-                          color: 'var(--primary-color)',
-                          '&:hover': {
-                            backgroundColor: 'rgba(0, 229, 255, 0.1)',
-                          },
-                        }}
-                      >
-                        {showApiKeys[provider] ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                      </IconButton>
-                    </Box>
-                  </Box>
-                  
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" sx={{ mb: 1 }}>Base URL</Typography>
-                    <input
-                      type="text"
-                      value={config?.baseUrl || ''}
-                      onChange={(e) => {
-                        updateProviderConfig(provider, 'baseUrl', e.target.value);
-                        // 强制设置 hasChanges 为 true
-                        setHasChanges(true);
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '8px',
-                        backgroundColor: 'rgba(0, 229, 255, 0.05)',
-                        border: '1px solid rgba(0, 229, 255, 0.2)',
-                        borderRadius: '4px',
-                        color: 'var(--text-color)'
-                      }}
-                    />
-                  </Box>
-
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" sx={{ mb: 1 }}>默认模型</Typography>
-                    <FormControl fullWidth size="small">
-                      <Select
-                        value={config?.defaultModel || ''}
-                        onChange={(e) => {
-                          updateProviderConfig(provider, 'defaultModel', e.target.value);
-                          // 强制设置 hasChanges 为 true
-                          setHasChanges(true);
-                        }}
-                        sx={{
-                          backgroundColor: 'rgba(0, 229, 255, 0.05)',
-                          '& .MuiOutlinedInput-notchedOutline': {
-                            borderColor: 'rgba(0, 229, 255, 0.2)',
-                          },
-                        }}
-                      >
-                        {getAvailableModelsForProvider(provider).map((model) => (
-                          <MenuItem key={model} value={model}>
-                            <Box>
-                              <Typography variant="body2">{model}</Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {getModelDescription(model)}
-                              </Typography>
-                            </Box>
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Box>
-
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" sx={{ mb: 1 }}>启用的模型</Typography>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                      {getAvailableModelsForProvider(provider).map((model) => (
-                        <FormControlLabel
-                          key={model}
-                          control={
-                            <Switch
-                              size="small"
-                              checked={(config?.enabledModels || []).includes(model)}
-                              onChange={(e) => {
-                                const currentModels = config?.enabledModels || [];
-                                const newModels = e.target.checked
-                                  ? [...currentModels, model]
-                                  : currentModels.filter(m => m !== model);
-                                updateProviderConfig(provider, 'enabledModels', newModels);
-                                // 强制设置 hasChanges 为 true
-                                setHasChanges(true);
-                              }}
-                              sx={{
-                                '& .MuiSwitch-switchBase.Mui-checked': {
-                                  color: '#00e5ff !important',
-                                },
-                                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                                  backgroundColor: '#00e5ff !important',
-                                  opacity: 0.5,
-                                },
-                              }}
-                            />
-                          }
-                          label={
-                            <Typography 
-                              variant="caption" 
-                              sx={{ 
-                                fontSize: '0.7rem',
-                                color: (config?.enabledModels || []).includes(model) ? '#00e5ff' : 'rgba(255, 255, 255, 0.7)',
-                              }}
-                            >
-                              {model}
-                            </Typography>
-                          }
-                        />
-                      ))}
-                    </Box>
-                  </Box>
-
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<TestIcon />}
-                      onClick={() => testConnection(provider)}
-                      disabled={testing[provider] || !config?.apiKey}
-                      sx={{
-                        borderColor: 'var(--primary-color)',
-                        color: 'var(--primary-color)',
-                        '&:hover': {
-                          borderColor: 'var(--primary-color)',
-                          backgroundColor: 'rgba(0, 229, 255, 0.1)',
-                        },
-                      }}
-                    >
-                      {testing[provider] ? '测试中...' : '测试连接'}
-                    </Button>
-                    
-                    {testResults[provider] && (
-                      <Chip
-                        icon={testResults[provider].success ? <SuccessIcon /> : <ErrorIcon />}
-                        label={testResults[provider].message}
-                        color={testResults[provider].success ? 'success' : 'error'}
-                        size="small"
-                      />
-                    )}
-                  </Box>
-                </>
-              )}
-            </Box>
-          );
-        })}
-      </Box>
-    );
-  };
-
-  // 渲染OpenAI兼容接口选项卡
-  const renderOpenAICompatibleTab = () => {
-    const compatibleProviders = ['deepseek', 'glm', 'qwen', 'moonshot', 'meta', 'openrouter'];
-    
-    return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="info" sx={{ mb: 3 }}>
-          使用OpenAI兼容的API接口连接各种模型，享受统一的接口体验。
-        </Alert>
-
-        {compatibleProviders.map((provider) => {
-          const config = providerConfigs[provider];
-          const providerNames = {
-            deepseek: 'DeepSeek (OpenAI兼容)',
-            glm: 'GLM (OpenAI兼容)',
-            qwen: 'Qwen (通义千问)',
-            moonshot: 'Moonshot (月之暗面)',
-            meta: 'Meta Llama',
-            openrouter: 'OpenRouter (兼容模式)'
-          };
-
-          return (
-            <Box key={provider} sx={{ mb: 3, p: 2, border: '1px solid rgba(0, 229, 255, 0.2)', borderRadius: '8px' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                <Typography variant="h6" sx={{ color: 'var(--primary-color)' }}>
-                  {providerNames[provider]}
-                </Typography>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={config?.enabled || false}
-                      onChange={(e) => {
-                        updateProviderConfig(provider, 'enabled', e.target.checked);
-                        // 强制设置 hasChanges 为 true
-                        setHasChanges(true);
-                      }}
-                    />
-                  }
-                  label="启用"
-                />
-              </Box>
-              
-              {config?.enabled && (
-                <>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" sx={{ mb: 1 }}>API Key</Typography>
-                    <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                      <input
-                        type={showApiKeys[provider] ? 'text' : 'password'}
-                        value={config?.apiKey || ''}
-                        onChange={(e) => updateProviderConfig(provider, 'apiKey', e.target.value)}
-                        placeholder="API Key"
-                        style={{
-                          width: '100%',
-                          padding: '8px 40px 8px 8px',
-                          backgroundColor: 'rgba(0, 229, 255, 0.05)',
-                          border: '1px solid rgba(0, 229, 255, 0.2)',
-                          borderRadius: '4px',
-                          color: 'var(--text-color)'
-                        }}
-                      />
-                      <IconButton
-                        onClick={() => toggleApiKeyVisibility(provider)}
-                        size="small"
-                        sx={{
-                          position: 'absolute',
-                          right: '8px',
-                          color: 'var(--primary-color)',
-                          '&:hover': {
-                            backgroundColor: 'rgba(0, 229, 255, 0.1)',
-                          },
-                        }}
-                      >
-                        {showApiKeys[provider] ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                      </IconButton>
-                    </Box>
-                  </Box>
-                  
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" sx={{ mb: 1 }}>Base URL</Typography>
-                    <input
-                      type="text"
-                      value={config?.baseUrl || ''}
-                      onChange={(e) => {
-                        updateProviderConfig(provider, 'baseUrl', e.target.value);
-                        // 强制设置 hasChanges 为 true
-                        setHasChanges(true);
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '8px',
-                        backgroundColor: 'rgba(0, 229, 255, 0.05)',
-                        border: '1px solid rgba(0, 229, 255, 0.2)',
-                        borderRadius: '4px',
-                        color: 'var(--text-color)'
-                      }}
-                    />
-                  </Box>
-
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" sx={{ mb: 1 }}>默认模型</Typography>
-                    <FormControl fullWidth size="small">
-                      <Select
-                        value={config?.defaultModel || ''}
-                        onChange={(e) => {
-                          updateProviderConfig(provider, 'defaultModel', e.target.value);
-                          // 强制设置 hasChanges 为 true
-                          setHasChanges(true);
-                        }}
-                        sx={{
-                          backgroundColor: 'rgba(0, 229, 255, 0.05)',
-                          '& .MuiOutlinedInput-notchedOutline': {
-                            borderColor: 'rgba(0, 229, 255, 0.2)',
-                          },
-                        }}
-                      >
-                        {getAvailableModelsForProvider(provider).map((model) => (
-                          <MenuItem key={model} value={model}>
-                            <Box>
-                              <Typography variant="body2">{model}</Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {getModelDescription(model)}
-                              </Typography>
-                            </Box>
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Box>
-
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" sx={{ mb: 1 }}>启用的模型</Typography>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                      {getAvailableModelsForProvider(provider).map((model) => (
-                        <FormControlLabel
-                          key={model}
-                          control={
-                            <Switch
-                              size="small"
-                              checked={(config?.enabledModels || []).includes(model)}
-                              onChange={(e) => {
-                                const currentModels = config?.enabledModels || [];
-                                const newModels = e.target.checked
-                                  ? [...currentModels, model]
-                                  : currentModels.filter(m => m !== model);
-                                updateProviderConfig(provider, 'enabledModels', newModels);
-                                // 强制设置 hasChanges 为 true
-                                setHasChanges(true);
-                              }}
-                              sx={{
-                                '& .MuiSwitch-switchBase.Mui-checked': {
-                                  color: '#00e5ff !important',
-                                },
-                                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                                  backgroundColor: '#00e5ff !important',
-                                  opacity: 0.5,
-                                },
-                              }}
-                            />
-                          }
-                          label={
-                            <Typography 
-                              variant="caption" 
-                              sx={{ 
-                                fontSize: '0.7rem',
-                                color: (config?.enabledModels || []).includes(model) ? '#00e5ff' : 'rgba(255, 255, 255, 0.7)',
-                              }}
-                            >
-                              {model}
-                            </Typography>
-                          }
-                        />
-                      ))}
-                    </Box>
-                  </Box>
-
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<TestIcon />}
-                      onClick={() => testConnection(provider)}
-                      disabled={testing[provider] || !config?.apiKey}
-                      sx={{
-                        borderColor: 'var(--primary-color)',
-                        color: 'var(--primary-color)',
-                        '&:hover': {
-                          borderColor: 'var(--primary-color)',
-                          backgroundColor: 'rgba(0, 229, 255, 0.1)',
-                        },
-                      }}
-                    >
-                      {testing[provider] ? '测试中...' : '测试连接'}
-                    </Button>
-                    
-                    {testResults[provider] && (
-                      <Chip
-                        icon={testResults[provider].success ? <SuccessIcon /> : <ErrorIcon />}
-                        label={testResults[provider].message}
-                        color={testResults[provider].success ? 'success' : 'error'}
-                        size="small"
-                      />
-                    )}
-                  </Box>
-                </>
-              )}
-            </Box>
-          );
-        })}
-      </Box>
-    );
-  };
-
-  // 渲染聚合平台选项卡
-  const renderAggregationTab = () => {
-    const aggregationProviders = ['modelscope', 'huggingface'];
-    
-    return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="info" sx={{ mb: 3 }}>
-          通过聚合平台访问多种模型，一个接口调用多个提供商的服务。
-        </Alert>
-
-        {aggregationProviders.map((provider) => {
-          const config = providerConfigs[provider];
-          const providerNames = {
-            modelscope: 'ModelScope (魔搭社区)',
-            huggingface: 'Hugging Face'
-          };
-
-          return (
-            <Box key={provider} sx={{ mb: 3, p: 2, border: '1px solid rgba(0, 229, 255, 0.2)', borderRadius: '8px' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                <Typography variant="h6" sx={{ color: 'var(--primary-color)' }}>
-                  {providerNames[provider]}
-                </Typography>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={config?.enabled || false}
-                      onChange={(e) => {
-                        updateProviderConfig(provider, 'enabled', e.target.checked);
-                        // 强制设置 hasChanges 为 true
-                        setHasChanges(true);
-                      }}
-                    />
-                  }
-                  label="启用"
-                />
-              </Box>
-              
-              {config?.enabled && (
-                <>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" sx={{ mb: 1 }}>API Key</Typography>
-                    <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                      <input
-                        type={showApiKeys[provider] ? 'text' : 'password'}
-                        value={config?.apiKey || ''}
-                        onChange={(e) => updateProviderConfig(provider, 'apiKey', e.target.value)}
-                        placeholder="API Key"
-                        style={{
-                          width: '100%',
-                          padding: '8px 40px 8px 8px',
-                          backgroundColor: 'rgba(0, 229, 255, 0.05)',
-                          border: '1px solid rgba(0, 229, 255, 0.2)',
-                          borderRadius: '4px',
-                          color: 'var(--text-color)'
-                        }}
-                      />
-                      <IconButton
-                        onClick={() => toggleApiKeyVisibility(provider)}
-                        size="small"
-                        sx={{
-                          position: 'absolute',
-                          right: '8px',
-                          color: 'var(--primary-color)',
-                          '&:hover': {
-                            backgroundColor: 'rgba(0, 229, 255, 0.1)',
-                          },
-                        }}
-                      >
-                        {showApiKeys[provider] ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                      </IconButton>
-                    </Box>
-                  </Box>
-                  
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" sx={{ mb: 1 }}>Base URL</Typography>
-                    <input
-                      type="text"
-                      value={config?.baseUrl || ''}
-                      onChange={(e) => {
-                        updateProviderConfig(provider, 'baseUrl', e.target.value);
-                        // 强制设置 hasChanges 为 true
-                        setHasChanges(true);
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '8px',
-                        backgroundColor: 'rgba(0, 229, 255, 0.05)',
-                        border: '1px solid rgba(0, 229, 255, 0.2)',
-                        borderRadius: '4px',
-                        color: 'var(--text-color)'
-                      }}
-                    />
-                  </Box>
-
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<TestIcon />}
-                      onClick={() => testConnection(provider)}
-                      disabled={testing[provider] || !config?.apiKey}
-                      sx={{
-                        borderColor: 'var(--primary-color)',
-                        color: 'var(--primary-color)',
-                        '&:hover': {
-                          borderColor: 'var(--primary-color)',
-                          backgroundColor: 'rgba(0, 229, 255, 0.1)',
-                        },
-                      }}
-                    >
-                      {testing[provider] ? '测试中...' : '测试连接'}
-                    </Button>
-                    
-                    {testResults[provider] && (
-                      <Chip
-                        icon={testResults[provider].success ? <SuccessIcon /> : <ErrorIcon />}
-                        label={testResults[provider].message}
-                        color={testResults[provider].success ? 'success' : 'error'}
+                        icon={testResultIcon}
+                        label={testResult.message}
+                        color={testResultColor}
                         size="small"
                       />
                     )}
@@ -1579,8 +906,8 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({ open, onClose, embe
               display: 'flex',
               alignItems: 'center'
             }}>
-              <span style={{ color: '#00ff88', marginRight: '8px' }}>✨</span>
-              多个AI智能体协作对话
+              <Box component="span" sx={{ color: '#00ff88', mr: 1 }}>✨</Box>
+              <Box component="span">多个AI智能体协作对话</Box>
             </Typography>
             <Typography variant="body2" sx={{ 
               color: 'rgba(255, 255, 255, 0.7)',
@@ -1588,8 +915,8 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({ open, onClose, embe
               display: 'flex',
               alignItems: 'center'
             }}>
-              <span style={{ color: '#00ff88', marginRight: '8px' }}>✨</span>
-              不同角色的专业化分工
+              <Box component="span" sx={{ color: '#00ff88', mr: 1 }}>✨</Box>
+              <Box component="span">不同角色的专业化分工</Box>
             </Typography>
             <Typography variant="body2" sx={{ 
               color: 'rgba(255, 255, 255, 0.7)',
@@ -1597,16 +924,16 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({ open, onClose, embe
               display: 'flex',
               alignItems: 'center'
             }}>
-              <span style={{ color: '#00ff88', marginRight: '8px' }}>✨</span>
-              复杂任务的智能分解与协作
+              <Box component="span" sx={{ color: '#00ff88', mr: 1 }}>✨</Box>
+              <Box component="span">复杂任务的智能分解与协作</Box>
             </Typography>
             <Typography variant="body2" sx={{ 
               color: 'rgba(255, 255, 255, 0.7)',
               display: 'flex',
               alignItems: 'center'
             }}>
-              <span style={{ color: '#00ff88', marginRight: '8px' }}>✨</span>
-              更高效的问题解决方案
+              <Box component="span" sx={{ color: '#00ff88', mr: 1 }}>✨</Box>
+              <Box component="span">更高效的问题解决方案</Box>
             </Typography>
           </Box>
         </Box>
@@ -1646,20 +973,18 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({ open, onClose, embe
     }
   }, [open, embedded]);
 
-  // 健壮配置架构：移除localStorage依赖，标签页状态仅在会话期间保持
-  // 这符合新架构的设计理念：后端为权威源，前端不持久化状态
-
   // 处理保存
   const handleSave = async () => {
     await saveConfigs();
-    
-    // 保存群聊设置
-    dispatch(setGroupChatSettings(localGroupChatSettings));
-    
+
     if (!embedded) {
       onClose();
     }
   };
+
+  if (!isVisible) {
+    return null;
+  }
 
   if (embedded) {
     return (
@@ -1702,7 +1027,6 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({ open, onClose, embe
           color: 'var(--text-color)',
           border: '1px solid var(--primary-color)',
           borderRadius: '12px',
-          transform: `translate(${dialogPosition.x}px, ${dialogPosition.y}px)`,
           height: '80vh',
           maxHeight: '80vh',
           display: 'flex',
@@ -1714,18 +1038,10 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({ open, onClose, embe
         sx={{
           backgroundColor: 'var(--primary-color)',
           color: 'var(--background-color)',
-          cursor: isDragging ? 'grabbing' : 'grab',
           userSelect: 'none',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-        }}
-        onMouseDown={(e) => {
-          setIsDragging(true);
-          setDragOffset({
-            x: e.clientX - dialogPosition.x,
-            y: e.clientY - dialogPosition.y,
-          });
         }}
       >
         提供商设置
@@ -1772,12 +1088,8 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({ open, onClose, embe
 
       <DialogActions sx={{ p: 2, borderTop: '1px solid rgba(0, 229, 255, 0.2)' }}>
         <Box sx={{ display: 'flex', gap: 1, width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="caption" sx={{ 
-            color: hasChanges ? '#ff4444' : '#666666',
-            fontWeight: 'bold',
-            fontSize: '12px'
-          }}>
-            DEBUG: hasChanges={String(hasChanges)} | renderKey={renderKey} | forceUpdate={forceUpdate}
+          <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '12px' }}>
+            {hasChanges ? '有未保存的配置变更' : '当前配置已同步'}
           </Typography>
           
           <Box sx={{ display: 'flex', gap: 1 }}>
@@ -1793,10 +1105,7 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({ open, onClose, embe
             </Button>
             
             <Button
-                onClick={() => {
-                  console.log('🔘 保存按钮被点击，hasChanges:', hasChanges);
-                  handleSave();
-                }}
+                onClick={handleSave}
                 variant="contained"
                 startIcon={<SaveIcon />}
                 disabled={!hasChanges}

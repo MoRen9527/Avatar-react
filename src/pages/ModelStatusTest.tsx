@@ -109,7 +109,7 @@ const ModelStatusTest: React.FC = () => {
 
       {Object.keys(modelsStatus).length === 0 && !loading ? (
         <Alert severity="info">
-          暂无模型配置，请先在设置中配置AI提供商
+          当前暂无可用模型，请联系平台管理员或稍后再试
         </Alert>
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

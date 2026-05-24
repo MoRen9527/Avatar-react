@@ -1,180 +1,151 @@
-# 数字化身应用 - React版本
+# Triavatar
 
-这是一个基于React和Material-UI的科幻主题前端项目，与现有的Vue+Vuetify版本功能相似，采用相同的科幻风格设计。
+Triavatar 是三元宇宙体系中的 Web 入口模块，并预留未来虚拟形象与游戏化入口能力。
 
-## 项目特色
+当前仓库内已经有一套可运行的 React/Vite/TypeScript 前端工程，但这不等于已经完成对 Tristaciss/avatar-react 的正式承接。现阶段更准确的口径是：Triavatar 已具备承接准备基础，正式切换仍需继续收口文档、命名和前后端配置合同。
 
-### 🌟 科幻主题设计
-- **星空背景效果**: 动态生成的星星背景，支持闪烁动画
-- **霓虹发光效果**: 按钮和卡片具有科幻风格的霓虹发光边框
-- **渐变背景**: 深空色调的渐变背景
-- **科幻UI组件**: 自定义的科幻风格按钮、卡片和加载器
+## 当前状态
 
-### 🎨 自定义组件
+- 已实现：独立的 React 18 + Vite 5 + TypeScript 前端工程。
+- 已实现：路由、登录页、首页、聊天页、仪表盘页、i18n 面板和若干演示页面。
+- 已实现：通过 VITE_API_URL 连接后端 API，并在开发环境下支持 /api 回退。
+- 已实现：Vitest、Playwright 和基础基线测试脚本入口。
+- 规划中：正式承接 Tristaciss 前端职责，并扩展虚拟形象、游戏化入口能力。
+- 待收口：历史命名、部分旧配置逻辑和模块对外说明仍需进一步整理。
 
-#### StarField 星空背景
-- 动态生成星星
-- 支持自定义星星数量
-- 闪烁动画效果
-- 响应式设计
+## 技术栈
 
-#### SciFiButton 科幻按钮
-- 霓虹发光边框
-- 悬停动画效果
-- 扫描线效果
-- 支持多种变体
+- React 18
+- Vite 5
+- TypeScript
+- Material UI
+- Redux Toolkit
+- React Router
+- Axios
+- i18next / react-i18next
+- Vitest
+- Playwright
 
-#### SciFiCard 科幻卡片
-- 发光边框动画
-- 背景模糊效果
-- 动态边框扫描
-- 可配置发光颜色
+## 当前能力范围
 
-#### SciFiLoader 科幻加载器
-- 脉冲动画效果
-- 发光文字
-- 动态指示点
-- 可自定义消息和大小
+### 已有页面与入口
 
-### 🚀 核心功能
+- 登录页与 OIDC 授权回调。
+- 首页与聊天历史入口。
+- 单聊相关页面与仪表盘相关页面。
+- 信息卡片、GameFi 和科幻 UI 演示页。
+- i18n 调试页。
 
-#### 用户认证
-- 科幻风格登录界面
-- 星空背景效果
-- 智能表单验证
-- 演示账户快速填充
+### 当前后端协作方式
 
-#### 聊天系统
-- 实时消息流
-- AI对话支持
-- 性能统计显示
-- 科幻风格消息气泡
+- API 基址通过 VITE_API_URL 注入。
+- 开发环境若未设置 VITE_API_URL，会回退到 /api。
+- 生产环境要求显式提供 VITE_API_URL，否则前端会直接 fail-fast。
+- 当前聊天主入口对接的是 Tristaciss FastAPI 的 /api/chat/stream。
+- 认证流程当前通过独立 Auth Server 的 OIDC 授权链完成，前端负责跳转和回调处理。
 
-#### 仪表盘
-- 信息卡片展示
-- 实时数据更新
-- 科幻风格数据可视化
-- 响应式布局
+## 目录结构
 
-### 🛠 技术栈
-
-- **React 18**: 现代React框架
-- **Material-UI (MUI)**: UI组件库
-- **Redux Toolkit**: 状态管理
-- **React Router**: 路由管理
-- **Axios**: HTTP客户端
-- **CSS3**: 自定义样式和动画
-
-### 📁 项目结构
-
-```
-digital-avatar-react/
-├── public/
-│   ├── index.html
-│   └── manifest.json
-├── src/
-│   ├── components/
-│   │   ├── common/          # 通用科幻组件
-│   │   │   ├── StarField.js
-│   │   │   ├── SciFiButton.js
-│   │   │   ├── SciFiCard.js
-│   │   │   └── SciFiLoader.js
-│   │   ├── chat/            # 聊天相关组件
-│   │   │   ├── ChatPanel.js
-│   │   │   └── ChatPanel.css
-│   │   └── dashboard/       # 仪表盘组件
-│   │       ├── Dashboard.js
-│   │       ├── InfoCard.js
-│   │       └── InfoCard.css
-│   ├── pages/               # 页面组件
-│   │   ├── HomePage.tsx
-│   │   └── LoginPage.tsx
-│   ├── store/               # Redux状态管理
-│   │   ├── index.ts
-│   │   ├── authSlice.ts
-│   │   ├── chatSlice.ts
-│   │   └── dashboardSlice.ts
-│   ├── services/            # API服务
-│   │   └── api.ts
-│   ├── styles/              # 样式文件
-│   │   ├── LoginPage.css
-│   │   └── HomePage.css
-│   ├── contexts/            # React上下文
-│   │   └── AuthContext.js
-│   ├── App.js
-│   ├── index.js
-│   ├── index.css
-│   └── theme.js
+```text
+Triavatar/
+├── index.html
 ├── package.json
-└── README.md
+├── tsconfig.json
+├── vite.config.ts
+├── src/
+│   ├── App.tsx
+│   ├── index.tsx
+│   ├── components/
+│   ├── hooks/
+│   ├── i18n/
+│   ├── locales/
+│   ├── pages/
+│   ├── services/
+│   ├── store/
+│   ├── styles/
+│   ├── theme.ts
+│   ├── types/
+│   └── utils/
+└── tests/
+    ├── e2e/
+    ├── fixtures/
+    ├── integration/
+    └── unit/
 ```
 
-### 🎯 设计理念
+## 开发命令
 
-#### 科幻美学
-- **深空色调**: 使用深蓝、黑色和青色的配色方案
-- **发光效果**: 霓虹青色 (#00ffff) 作为主要强调色
-- **几何线条**: 简洁的几何设计和线条
-- **动态效果**: 流畅的动画和过渡效果
+先安装依赖：
 
-#### 用户体验
-- **直观导航**: 清晰的界面布局
-- **响应式设计**: 适配各种屏幕尺寸
-- **流畅交互**: 平滑的动画和反馈
-- **视觉层次**: 明确的信息层级
-
-### 🔧 开发指南
-
-#### 启动项目
 ```bash
-cd digital-avatar-react
 npm install
-npm start
 ```
 
-#### 构建项目
+启动开发环境：
+
+```bash
+npm run dev
+```
+
+构建生产包：
+
 ```bash
 npm run build
 ```
 
-#### 测试账户
-- **admin** / **admin123** - 管理员账户
-- **user1** / **user123** - 测试用户1
-- **demo** / **demo123** - 演示用户
+本地预览构建结果：
 
-### 🌐 后端兼容性
+```bash
+npm run preview
+```
 
-该React前端项目设计为与现有的后端API完全兼容：
+运行单元测试：
 
-- **认证接口**: `/api/auth/login`
-- **聊天接口**: `/api/chat/stream`
-- **用户信息**: `/api/user/profile`
-- **仪表盘数据**: `/api/dashboard/cards`
+```bash
+npm test
+```
 
-### 🎨 主题定制
+运行端到端测试：
 
-项目支持主题定制，可以通过修改 `src/theme.js` 文件来调整：
+```bash
+npm run test:e2e
+```
 
-- 主色调
-- 发光颜色
-- 背景渐变
-- 字体设置
-- 动画参数
+运行当前仓内的基线测试集合：
 
-### 📱 响应式设计
+```bash
+npm run test:baseline
+```
 
-- **桌面端**: 完整的双栏布局
-- **平板端**: 自适应布局调整
-- **移动端**: 单栏堆叠布局
+## 环境变量
 
-### 🔮 未来规划
+最关键的前端环境变量如下：
 
-- [ ] 添加更多科幻动画效果
-- [ ] 实现主题切换功能
-- [ ] 增加音效支持
-- [ ] 优化移动端体验
-- [ ] 添加更多数据可视化组件
+```bash
+VITE_API_URL=http://localhost:8008/api
+```
 
----
+说明：
 
-这个React版本保持了与Vue版本相同的科幻美学和功能特性，同时利用了React生态系统的优势，提供了现代化的开发体验和优秀的性能表现。
+- 开发环境建议显式配置 VITE_API_URL，避免依赖 /api 回退。
+- 生产环境必须配置 VITE_API_URL。
+- Auth Server 基址由前端在运行时根据 API 基址去掉 /api 后缀推导。
+
+## 与 Tristaciss 的当前边界
+
+- 当前 API 与认证链路仍主要依赖 Tristaciss 现役后端与认证服务。
+- Triavatar 已具备独立前端工程形态，但尚未宣告成为前端正式唯一真源。
+- 在正式承接前，仍需继续清理旧命名、旧配置假设和若干历史页面命名残留。
+
+## 已知待收口事项
+
+- 登录与身份相关文案中仍有 Tristaciss 命名残留。
+- 前端配置链中仍存在历史 provider_settings / localStorage 假设。
+- 个别页面和文件名仍带有历史迁移痕迹。
+- 这些问题不影响继续作为承接准备仓推进，但会影响正式切换时的边界清晰度。
+
+## 后续建议
+
+- 先完成文档、命名和配置合同对齐。
+- 再形成 avatar-react 到 Triavatar 的正式迁移清单。
+- 最后再决定是否把 Triavatar 提升为前端正式承接模块。
