@@ -34,6 +34,7 @@
 ## Git Health
 
 - 2026-05-24 已由 CTO 小狄技术线执行仓库瘦身：`node_modules/` 的 82,800 个已跟踪依赖缓存文件已通过 `git rm -r --cached -- node_modules` 从 Git 索引移出，本地依赖目录保留。
+- 2026-05-24 已继续将 `build/` 生成物从 Git 索引移出，本地构建目录保留；后续以 `npm run build` 重新生成，不再把构建产物作为仓库真源。
 - `package.json` 与 `package-lock.json` 仍作为依赖真源保留跟踪；`.gitignore` 已加入 `node_modules/`，后续不应重新提交依赖缓存。
 - 瘦身来源：`node_modules/` 文件来自初始提交 `f320dd3f7`（`chore: initial import`）。
 - 当前仍需注意：本轮瘦身会在 Git 状态中表现为大量 `node_modules/**` 删除，提交前应和 `.gitignore`、CodeRegistry 摘要一起作为一次仓库瘦身变更处理。
