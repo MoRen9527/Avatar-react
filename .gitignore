@@ -1,4 +1,4 @@
-# Local CodeGraph cache
+﻿# Local CodeGraph cache
 .codegraph/
 src/.codegraph/
 tests/.codegraph/
@@ -19,3 +19,5 @@ test-results/
 # OS/editor noise
 .DS_Store
 Thumbs.db
+.cursor/
+vendor/
